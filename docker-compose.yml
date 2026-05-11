@@ -1,0 +1,37 @@
+name: correlate-demo
+
+services:
+  emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    container_name: correlate-demo-sb-emulator
+    pull_policy: always
+    volumes:
+      - "./emulator/Config.json:/ServiceBus_Emulator/ConfigFiles/Config.json"
+    ports:
+      - "5672:5672"
+      - "5300:5300"
+    environment:
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: "Pa$$word1234!"
+      ACCEPT_EULA: "Y"
+    depends_on:
+      - sqledge
+    networks:
+      sb-net:
+        aliases:
+          - sb-emulator
+
+  sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: correlate-demo-sql-edge
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Pa$$word1234!"
+    networks:
+      sb-net:
+        aliases:
+          - sqledge
+
+networks:
+  sb-net:

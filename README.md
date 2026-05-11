@@ -42,9 +42,11 @@ Ten tests cover the full surface. No real Azure Service Bus is needed.
 | `PublishCorrelationTests` | The factory writes the current correlation ID into `ServiceBusMessage.CorrelationId`. |
 | `ConsumeCorrelationTests` | `IAsyncCorrelationManager.CorrelateAsync(message.CorrelationId, ...)` restores the context, then clears it on exit. |
 
-## Run the services end to end (optional)
+## Run the services end to end
 
-The HTTP flow does not need any external dependency:
+### HTTP only (no broker)
+
+The two web services need nothing external:
 
 ```bash
 dotnet run --project src/CorrelateDemo.ServiceB
@@ -61,17 +63,33 @@ curl -i -X POST http://localhost:5001/orders \
   -d '{ "orderId": "11111111-1111-1111-1111-111111111111" }'
 ```
 
-You should see the same `ride-the-id` value in the response header, in the response body for both services, and stamped on every log line from both processes.
+The response header echoes `ride-the-id`, the body returns it from both services, and every log line in both processes carries the same value.
 
-The Service Bus flow needs a connection string. You can either point at a real namespace or run the Microsoft Azure Service Bus emulator locally:
+### Full flow with the Azure Service Bus emulator
+
+The repo ships a `docker-compose.yml` and an `emulator/Config.json` that boot the official Microsoft Service Bus emulator with an `orders` queue pre-declared. Apple Silicon users: SQL Edge runs under Rosetta via `platform: linux/amd64`, no extra setup.
 
 ```bash
-# Example with a real namespace:
-export ServiceBus__ConnectionString="Endpoint=sb://your-namespace.servicebus.windows.net/;..."
-dotnet run --project src/CorrelateDemo.Worker
+docker compose up -d
+# wait for the emulator log line "Emulator Service is Successfully Up!"
+docker logs -f correlate-demo-sb-emulator
 ```
 
-Then publish a message:
+The Worker and ServiceA both read `ServiceBus:ConnectionString` from `appsettings.Development.json`, which is already wired to the emulator:
+
+```
+Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true
+```
+
+In three terminals (or background shells):
+
+```bash
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/CorrelateDemo.ServiceB --urls http://localhost:5002
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/CorrelateDemo.ServiceA --urls http://localhost:5001
+DOTNET_ENVIRONMENT=Development      dotnet run --project src/CorrelateDemo.Worker
+```
+
+Publish a message through ServiceA:
 
 ```bash
 curl -i -X POST http://localhost:5001/orders/publish \
@@ -80,7 +98,19 @@ curl -i -X POST http://localhost:5001/orders/publish \
   -d '{ "orderId": "22222222-2222-2222-2222-222222222222" }'
 ```
 
-The Worker logs the same `bus-trip` ID inside the handler, restored from `ServiceBusMessage.CorrelationId`.
+You should see a line like this in the Worker output:
+
+```
+[20:41:28 INF] [bus-trip] Worker handled OrderPlaced 22222222-... under correlation bus-trip
+```
+
+Same `bus-trip` ID in ServiceA, ServiceB, and the Worker. Restored on consume from `ServiceBusMessage.CorrelationId`.
+
+Tear down:
+
+```bash
+docker compose down
+```
 
 ## Where this came from
 
