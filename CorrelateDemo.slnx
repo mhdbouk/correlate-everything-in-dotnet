@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CorrelateDemo.Messaging/CorrelateDemo.Messaging.csproj" />
+    <Project Path="src/CorrelateDemo.ServiceA/CorrelateDemo.ServiceA.csproj" />
+    <Project Path="src/CorrelateDemo.ServiceB/CorrelateDemo.ServiceB.csproj" />
+    <Project Path="src/CorrelateDemo.Worker/CorrelateDemo.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CorrelateDemo.Tests/CorrelateDemo.Tests.csproj" />
+  </Folder>
+</Solution>
